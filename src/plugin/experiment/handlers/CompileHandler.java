@@ -1,15 +1,20 @@
 package plugin.experiment.handlers;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.handlers.HandlerUtil;
-import org.eclipse.jface.dialogs.MessageDialog;
+
+
+import plugin.experiment.configurator.Configurator;
+
 import org.eclipse.ui.console.ConsolePlugin;
 import org.eclipse.ui.console.IConsole;
 import org.eclipse.ui.console.IConsoleConstants;
@@ -35,15 +40,23 @@ public class CompileHandler extends AbstractHandler {
 	 * from the application context.
 	 */
 	public Object execute(ExecutionEvent event) throws ExecutionException {
-		System.out.println("ola");
+		System.out.println("Compile handler called");
+		org.eclipse.ui.PlatformUI.getWorkbench().saveAllEditors(false);
+
+		String returnString = "";
 		IWorkbenchPart workbenchPart = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActivePart();
 		if (workbenchPart.getSite().getPage().getActiveEditor() != null &&
-				workbenchPart.getSite().getPage().getActiveEditor().getEditorInput() != null)
-		System.out.println(workbenchPart.getSite().getPage().getActiveEditor().getEditorInput().getName());
+				workbenchPart.getSite().getPage().getActiveEditor().getEditorInput() != null) {
+			returnString = compile(workbenchPart.getSite().getPage().getActiveEditor().getEditorInput().getName());
+		}
 		
 		MessageConsole myConsole = findConsole("COMPILADOR");
 	    MessageConsoleStream out = myConsole.newMessageStream();
-	    out.println("Hello from Generic console sample action");		
+	    if (returnString.isEmpty()) {
+	    	returnString = "Não foram encontrados erros de compilação";
+	    }
+	    myConsole.clearConsole();
+	    out.println(returnString);		
 	    IWorkbenchPage page = workbenchPart.getSite().getPage();// obtain the active page
 	    String id = IConsoleConstants.ID_CONSOLE_VIEW;
 	    IConsoleView view;
@@ -71,4 +84,67 @@ public class CompileHandler extends AbstractHandler {
 	      conMan.addConsoles(new IConsole[]{myConsole});
 	      return myConsole;
 	   }
+	
+	private String compile(String file) {
+		String out = "";
+		Runtime r = Runtime.getRuntime();
+		Process p;
+		try {
+			p = r.exec(Configurator.getInstance().getCompileComand1());
+			try {
+				p.waitFor();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			p = r.exec(Configurator.getInstance().generateCompileParams(file));			
+			try {
+				p.waitFor();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			BufferedReader b2 = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+			String line = "";
+
+			try {
+				while ((line = b.readLine()) != null) {
+				  out += line + "\n";
+				}
+				while ((line = b2.readLine()) != null) {
+					  out += line + "\n";
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			try {
+				b.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			try {
+				b2.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			p = r.exec(Configurator.getInstance().getCompileComand2());
+			try {
+				p.waitFor();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		return out;
+	}	
+	
 }

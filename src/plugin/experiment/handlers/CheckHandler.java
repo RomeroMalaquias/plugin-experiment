@@ -7,10 +7,8 @@ import org.eclipse.core.commands.NotEnabledException;
 import org.eclipse.core.commands.NotHandledException;
 import org.eclipse.core.commands.common.NotDefinedException;
 import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.handlers.IHandlerService;
-import org.eclipse.jface.dialogs.MessageDialog;
 
 /**
  * Our sample handler extends AbstractHandler, an IHandler base class.
@@ -29,11 +27,12 @@ public class CheckHandler extends AbstractHandler {
 	 * from the application context.
 	 */
 	public Object execute(ExecutionEvent event) throws ExecutionException {		
+		System.out.println("Check handler called");		
 		IWorkbenchPart part = HandlerUtil.getActivePartChecked(event);
 
 		IHandlerService service = (IHandlerService)part.getSite().getService(IHandlerService.class);
 		try {
-			service.executeCommand("plugin.experiment.commands.sampleCommand", null);
+			service.executeCommand("plugin.experiment.commands.timeCommand", null);
 		} catch (NotDefinedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -44,6 +43,6 @@ public class CheckHandler extends AbstractHandler {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return null;
+				return null;
 	}
 }
