@@ -26,6 +26,8 @@ import org.eclipse.ui.handlers.IHandlerService;
 import org.eclipse.ui.internal.util.BundleUtility;
 import org.eclipse.ui.menus.UIElement;
 import plugin.experiment.configurator.Configurator;
+import plugin.experiment.configurator.Core;
+
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
 
@@ -38,33 +40,23 @@ import org.eclipse.jface.resource.ImageDescriptor;
  */
 public class TimeHandler 
 	extends AbstractHandler implements IElementUpdater {
-	private long lastTime;
-	private long accumulatedTime;
-	private boolean isRunning;
-	private boolean hasStarted;
-	private ArrayList<Long> times;
+	
 	private URL fullPathString;	
 	private ImageDescriptor play;
     private ImageDescriptor pause;
     private IWorkbenchPart part;
 	private IHandlerService service;
-	private String command;
-	
+		
 
 	/**
 	 * The constructor.
 	 */
 	public TimeHandler() {
-		times = new ArrayList<>();
-		isRunning = false;
-		lastTime = 0;
-		accumulatedTime = 0;
+		Core.getInstance().isCounting();
 		fullPathString = BundleUtility.find("plugin.experiment", "icons/play.png");	
 		play = ImageDescriptor.createFromURL(fullPathString);
 		fullPathString = BundleUtility.find("plugin.experiment", "icons/pause.png");
 		pause = ImageDescriptor.createFromURL(fullPathString);       
-		hasStarted = false;
-		command = Configurator.getInstance().getTaskCommand();
 	}
 
 	/**
@@ -74,23 +66,26 @@ public class TimeHandler
 	public Object execute(ExecutionEvent event) throws ExecutionException {		
 		System.out.println("Time handler called");
 		IWorkbenchWindow window = HandlerUtil.getActiveWorkbenchWindowChecked(event);
+		if (Core.getInstance().isDisabled()) {
+			MessageDialog.openWarning(
+					window.getShell(),
+					"Experimento",
+					"Tarefa finalizada, siga as instruções do papel!");
+
+		} else { 
+
 		ICommandService commandService = (ICommandService) window.getService(ICommandService.class);
 		part = HandlerUtil.getActivePartChecked(event);
 		service = (IHandlerService)part.getSite().getService(IHandlerService.class);
 	    if (event.getTrigger() == null) {
-	    	if (isRunning) {	    		
-				accumulatedTime = System.currentTimeMillis() - lastTime;
-				times.add(accumulatedTime);
+	    	if (Core.getInstance().isCounting()) {
+	    		System.out.println("Testing");
 				if (testAnswer()) {			
 					MessageDialog.openInformation(
 							window.getShell(),
 							"Experimento",
 							"Tarefa cumprida!");
-					hasStarted = false;
-					isRunning = false;
-					report();			
-					
-				} else {
+					} else {
 					MessageDialog.openError(
 							window.getShell(),
 							"Experimento",
@@ -105,31 +100,36 @@ public class TimeHandler
 	    	}
 	    	
 	    } else {
-	    	if (!isRunning) {
-	    		hasStarted = true;
-				lastTime = System.currentTimeMillis();
-				isRunning = true;
-			} else {						
+	    	
+	    	if (!Core.getInstance().isCounting()) {
+	    		Core.getInstance().startCounter();
+	    		System.out.println("Starting");
+			} else {					
+				Core.getInstance().startCounter();
+				System.out.println("Pausing");
 				MessageDialog.openWarning(
 						window.getShell(),
 						"Experimento",
 						"Tempo pausado");
-				isRunning = false;
 				
 			}
 	    }
+		
 	    if (commandService != null) {
 	        commandService.refreshElements("plugin.experiment.commands.timeCommand", null);
 	    }		
-	    	
+		}
+		
 		return null;
 	}
 	
 	@Override
 	public void updateElement(UIElement element,@SuppressWarnings("rawtypes") Map arg1) {
-		if(isRunning && hasStarted) { 
+		if(Core.getInstance().isCounting() && Core.getInstance().hasStarted()) { 
+			System.out.println("pause deveria estar aparecendo");
             element.setIcon(pause);
         } else {
+        	System.out.println("play deveria estar aparecendo");
             element.setIcon(play);
         }     
 		
@@ -137,91 +137,10 @@ public class TimeHandler
 	
 	private boolean testAnswer() {
 		org.eclipse.ui.PlatformUI.getWorkbench().saveAllEditors(false);
-		boolean passed = true;
-		String out = "";
-		Runtime r = Runtime.getRuntime();
-		Process p;
-		try {
-			p = r.exec(command);
-			try {
-				p.waitFor();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			BufferedReader b2 = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-			String line = "";
-
-			try {
-				while ((line = b.readLine()) != null) {
-				  out += line + "\n";
-				  passed = false;
-				}
-				while ((line = b2.readLine()) != null) {
-					  out += line + "\n";
-					  passed = false;
-				}
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-
-			try {
-				b.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			try {
-				b2.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		
-		return passed;
+				
+		return Core.getInstance().testAnswer();
 	}
 	
-	public void report() {
-		String savestr = Configurator.getInstance().getReportFile();
-		String toAppend = Configurator.getInstance().getProjectName() + " - " +Configurator.getInstance().getTaskTitle() + "\n";
-		long total = 0;
-		toAppend += "Tries: " + times.size() + "\n";
-		for (int i = 0; i < times.size(); i++) {
-			toAppend += i + ": " + times.get(i) + "\n";
-			total += times.get(i);
-		}
-		toAppend += "Total: " + total + "\n\n";
-		File f = new File(savestr);
-
-		PrintWriter out = null;
-		if ( f.exists() && !f.isDirectory() ) {
-		    try {
-				out = new PrintWriter(new FileOutputStream(new File(savestr), true));
-				out.append(toAppend);
-			    out.close();
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		    
-		}
-		else {
-		    try {
-				out = new PrintWriter(savestr);
-				out.println(toAppend);
-			    out.close();
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		    
-		}
-	}
+	
 	
 }

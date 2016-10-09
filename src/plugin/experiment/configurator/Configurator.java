@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
 import java.util.Properties;
 
 public class Configurator {
@@ -18,30 +20,22 @@ private String compilePart1 = "";
 private String compilePart2 = "";
 private String taskTitle = "";
 private String reportFile = "";
-
+private Properties prop;
+private String filename;
+private String timeHandler;
 private Configurator () {
-	Properties prop = new Properties();
-	InputStream input = null;
-	String filename = "./config.properties";
+	prop = new Properties();
+	filename = "/config.properties";
+	timeHandler = "./config.properties";
+	
+	InputStream input = getClass().getResourceAsStream(filename);
 
 	try {
-		File file = new File(filename);
-		if (!file.exists()) {
-			FileOutputStream newFile = new FileOutputStream(file);
-			newFile.write(("task.command=/home/romero/Mestrado/Experimento2/tests/VIM/task1.sh \n" +
-				"task.project=VIM \n" +
-				"compile1=/home/romero/Mestrado/Experimento2/tests/VIM/compile.sh \n" +
-				"compile2=/home/romero/Mestrado/Experimento2/tests/VIM/compile2.sh \n" +
-				"compile.part1=gcc -c /home/romero/Mestrado/Experimento2/workspace/VIM/src/ \n" +
-				"compile.part2=/home/romero/Mestrado/Experimento2/workspace/VIM/src/os_unixx.h -w \n" +
-				"task.filename=msecWait.c \n"+
-				"report.filename=/home/romero/Mestrado/Experimento2/report.txt").getBytes());
+		
+		if (input == null) {
+			System.out.println("Could not read the properties");		
 			
 		}
-		System.out.println(file.exists());
-		System.out.println(file.getParent());
-		input = new FileInputStream(file);
-		
 		// load a properties file
 		prop.load(input);		
 		System.out.println(prop.isEmpty());
@@ -98,8 +92,9 @@ public String getCompileComand2() {
 	return compileCommand2;
 }
 
-public String generateCompileParams(String file) {
-	return compilePart1 + file + compilePart2;
+public String generateCompileParams() {
+	System.out.println(compilePart1 + " " + taskFilename + " " + compilePart2);
+	return compilePart1 + " " + taskFilename + " " + compilePart2;
 }
 
 public String getTaskTitle() {
@@ -108,5 +103,62 @@ public String getTaskTitle() {
 
 public String getReportFile() {
 	return reportFile; //"/home/romero/Mestrado/Experimento2/report.txt"
+}
+
+public void setLastTime(String lastTime) {	
+	try {
+		File file = new File(timeHandler);
+		System.out.println("File exists? " + file.exists());
+		OutputStream output = new FileOutputStream(file);
+		prop.setProperty("time.last", lastTime);
+		prop.store(output, null);
+	} catch (Exception e) {
+		
+	}
+}
+
+public void setAccumulatedTime(String time) {
+	try {
+		File file = new File(timeHandler);
+		OutputStream output = new FileOutputStream(file);
+		prop.setProperty("time.accumulated", time);
+		prop.store(output, null);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	
+}
+
+public long getLastTime() {
+	String lastTime = prop.getProperty("time.last");
+	long time = 0;
+	try {
+		time = Long.parseLong(lastTime);
+	} catch (Exception e) {
+	}
+	return time;
+}
+
+public long getAccumulatedTime() {
+	String accumulatedTime = prop.getProperty("time.accumulated");
+	long time = 0;
+	try {
+		time = Long.parseLong("time.accumulated");
+	} catch (Exception e) {
+	}
+	return time;
+}
+
+public void removeTimes(){
+	
+	try {		
+		File file = new File(timeHandler);
+		OutputStream output = new FileOutputStream(file);
+		prop.remove("time.accumulated");
+		prop.remove("time.last");
+		prop.store(output, null);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
 }
 }

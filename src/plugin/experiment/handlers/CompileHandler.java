@@ -7,13 +7,16 @@ import java.io.InputStreamReader;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
+import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 
 
 import plugin.experiment.configurator.Configurator;
+import plugin.experiment.configurator.Core;
 
 import org.eclipse.ui.console.ConsolePlugin;
 import org.eclipse.ui.console.IConsole;
@@ -22,6 +25,7 @@ import org.eclipse.ui.console.IConsoleManager;
 import org.eclipse.ui.console.IConsoleView;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.console.MessageConsoleStream;
+import org.eclipse.ui.handlers.HandlerUtil;
 
 /**
  * Our sample handler extends AbstractHandler, an IHandler base class.
@@ -45,29 +49,35 @@ public class CompileHandler extends AbstractHandler {
 
 		String returnString = "";
 		IWorkbenchPart workbenchPart = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActivePart();
-		if (workbenchPart.getSite().getPage().getActiveEditor() != null &&
-				workbenchPart.getSite().getPage().getActiveEditor().getEditorInput() != null) {
-			returnString = compile(workbenchPart.getSite().getPage().getActiveEditor().getEditorInput().getName());
+		if (Core.getInstance().isCounting()) {
+			returnString = Core.getInstance().compile();
+			MessageConsole myConsole = findConsole("COMPILADOR");
+		    MessageConsoleStream out = myConsole.newMessageStream();
+		    if (returnString.isEmpty()) {
+		    	returnString = "Não foram encontrados erros de compilação na configuração atual do arquivo";
+		    }
+		    myConsole.clearConsole();
+		    out.println(returnString);		
+		    IWorkbenchPage page = workbenchPart.getSite().getPage();// obtain the active page
+		    String id = IConsoleConstants.ID_CONSOLE_VIEW;
+		    IConsoleView view;
+			try {
+				view = (IConsoleView) page.showView(id);
+				 view.display(myConsole);
+			} catch (PartInitException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		   
+			
+		} else {
+			IWorkbenchWindow window = HandlerUtil.getActiveWorkbenchWindowChecked(event);
+			MessageDialog.openWarning(
+					window.getShell(),
+					"Experimento",
+					"Não é possível compilar o arquivo sem ter iniciado o cronômetro");
 		}
 		
-		MessageConsole myConsole = findConsole("COMPILADOR");
-	    MessageConsoleStream out = myConsole.newMessageStream();
-	    if (returnString.isEmpty()) {
-	    	returnString = "Não foram encontrados erros de compilação";
-	    }
-	    myConsole.clearConsole();
-	    out.println(returnString);		
-	    IWorkbenchPage page = workbenchPart.getSite().getPage();// obtain the active page
-	    String id = IConsoleConstants.ID_CONSOLE_VIEW;
-	    IConsoleView view;
-		try {
-			view = (IConsoleView) page.showView(id);
-			 view.display(myConsole);
-		} catch (PartInitException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	   
 				
 		return null;
 	}
@@ -85,66 +95,5 @@ public class CompileHandler extends AbstractHandler {
 	      return myConsole;
 	   }
 	
-	private String compile(String file) {
-		String out = "";
-		Runtime r = Runtime.getRuntime();
-		Process p;
-		try {
-			p = r.exec(Configurator.getInstance().getCompileComand1());
-			try {
-				p.waitFor();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			p = r.exec(Configurator.getInstance().generateCompileParams(file));			
-			try {
-				p.waitFor();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			BufferedReader b = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			BufferedReader b2 = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-			String line = "";
-
-			try {
-				while ((line = b.readLine()) != null) {
-				  out += line + "\n";
-				}
-				while ((line = b2.readLine()) != null) {
-					  out += line + "\n";
-				}
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-
-			try {
-				b.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			try {
-				b2.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			p = r.exec(Configurator.getInstance().getCompileComand2());
-			try {
-				p.waitFor();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		
-		return out;
-	}	
 	
 }
